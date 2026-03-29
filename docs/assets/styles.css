@@ -272,7 +272,6 @@ kbd {
 .pkg-readme-link,
 .pkg-links a {
   transition:
-    transform 140ms ease,
     border-color 140ms ease,
     color 140ms ease,
     background 140ms ease,
@@ -309,7 +308,6 @@ kbd {
 .pkg-recent-arrow:hover,
 .pkg-author-card:hover,
 .pkg-recent-card:hover {
-  transform: translateY(-1px);
   border-color: var(--border-strong);
   color: var(--text);
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
@@ -1006,15 +1004,14 @@ kbd {
   border: 1px solid var(--border);
   background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)), var(--panel);
   box-shadow: 0 16px 42px rgba(0, 0, 0, 0.2);
-  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+  transition: border-color 160ms ease, box-shadow 160ms ease;
   content-visibility: auto;
   contain-intrinsic-size: 360px 420px;
 }
 
 .pkg-card:hover {
-  transform: translateY(-3px);
   border-color: var(--border-strong);
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.24);
 }
 
 .pkg-card:focus {
