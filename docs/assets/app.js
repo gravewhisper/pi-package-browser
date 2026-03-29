@@ -94,6 +94,13 @@
   var activeCardName = '';
   var refreshFiltersTimer = null;
   var refreshHeroTimer = null;
+  var supplementalRenderFrame = 0;
+  var sortedPackagesBy = {
+    downloads: [],
+    recent: [],
+    name: []
+  };
+  var heroTypeCounts = emptyTypeCounts();
 
   var SVG_NPM = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0v24h24v-24h-24zm19.2 19.2h-2.4v-9.6h-4.8v9.6h-7.2v-14.4h14.4v14.4z"/></svg>';
   var SVG_GH = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>';
@@ -293,18 +300,62 @@
     });
   }
 
+  function emptyTypeCounts() {
+    return {
+      extension: 0,
+      skill: 0,
+      theme: 0,
+      prompt: 0
+    };
+  }
+
+  function rebuildPackageCaches() {
+    var nextPackageMap = new Map();
+    var nextTypeCounts = emptyTypeCounts();
+
+    packages.forEach(function (pkg) {
+      nextPackageMap.set(pkg.name, pkg);
+      (pkg.types || []).forEach(function (type) {
+        if (nextTypeCounts[type] !== undefined) nextTypeCounts[type] += 1;
+      });
+    });
+
+    packageMap = nextPackageMap;
+    heroTypeCounts = nextTypeCounts;
+    sortedPackagesBy = {
+      downloads: packages.slice().sort(function (a, b) { return (b.downloads || 0) - (a.downloads || 0); }),
+      recent: packages.slice().sort(function (a, b) { return (b.dateMs || 0) - (a.dateMs || 0); }),
+      name: packages.slice().sort(function (a, b) { return a.name.localeCompare(b.name); })
+    };
+  }
+
   function processSearchResults(objects, flags) {
     return (objects || []).map(function (obj) {
       var pkg = obj.package || {};
-      var flag = flags[pkg.name] || null;
+      var name = pkg.name || '';
+      var description = pkg.description || '';
+      var types = typesFromKeywords(pkg.keywords || []);
+      var author = {
+        name: pkg.maintainers && pkg.maintainers[0] && (pkg.maintainers[0].username || pkg.maintainers[0].email)
+          || pkg.publisher && (pkg.publisher.username || pkg.publisher.email)
+          || 'unknown',
+        email: pkg.maintainers && pkg.maintainers[0] && pkg.maintainers[0].email
+          || pkg.publisher && pkg.publisher.email
+          || ''
+      };
+      var dateMs = Date.parse(pkg.date || '');
+      var flag = flags[name] || null;
+      if (!Number.isFinite(dateMs)) dateMs = 0;
 
       return {
-        name: pkg.name,
-        description: pkg.description || '',
+        name: name,
+        description: description,
         version: pkg.version || '0.0.0',
         date: pkg.date,
+        dateMs: dateMs,
         downloads: obj.downloads && obj.downloads.monthly || 0,
-        types: typesFromKeywords(pkg.keywords || []),
+        searchText: [name, description, author.name].join('\n').toLowerCase(),
+        types: types,
         video: null,
         image: null,
         links: {
@@ -312,14 +363,7 @@
           repository: normalizeRepo(pkg.links && pkg.links.repository),
           homepage: pkg.links && pkg.links.homepage || null
         },
-        author: {
-          name: pkg.maintainers && pkg.maintainers[0] && (pkg.maintainers[0].username || pkg.maintainers[0].email)
-            || pkg.publisher && (pkg.publisher.username || pkg.publisher.email)
-            || 'unknown',
-          email: pkg.maintainers && pkg.maintainers[0] && pkg.maintainers[0].email
-            || pkg.publisher && pkg.publisher.email
-            || ''
-        },
+        author: author,
         flag: flag && !flag.hide
           ? { status: 'warn', url: flag.url }
           : null,
@@ -578,26 +622,13 @@
   }
 
   function updateHero() {
-    var typeCounts = {
-      extension: 0,
-      skill: 0,
-      theme: 0,
-      prompt: 0
-    };
-
-    packages.forEach(function (pkg) {
-      unique(pkg.types).forEach(function (type) {
-        if (typeCounts[type] !== undefined) typeCounts[type] += 1;
-      });
-    });
-
     heroStats.innerHTML = [
       statCard('Packages', formatNumber(packages.length), 'Live npm matches'),
       statCard('Checked', formatNumber(manifestsLoaded), 'Visible manifests checked for previews'),
       statCard('Visible now', formatNumber(Math.min(renderedCount, filteredPackages.length || packages.length)), 'Cards currently on screen'),
-      statCard('Extensions', formatNumber(typeCounts.extension), 'Keyword-detected'),
-      statCard('Skills', formatNumber(typeCounts.skill), 'Keyword-detected'),
-      statCard('Themes', formatNumber(typeCounts.theme), 'Keyword-detected')
+      statCard('Extensions', formatNumber(heroTypeCounts.extension), 'Keyword-detected'),
+      statCard('Skills', formatNumber(heroTypeCounts.skill), 'Keyword-detected'),
+      statCard('Themes', formatNumber(heroTypeCounts.theme), 'Keyword-detected')
     ].join('');
 
     var ratio = renderedCount ? Math.min(1, manifestsLoaded / renderedCount) : 0;
@@ -1194,25 +1225,13 @@
 
   function getFilteredPackages() {
     var query = searchInput.value.toLowerCase().trim();
-    var typeFilters = new Set(activeTypes);
+    var typeFilters = activeTypes;
+    var sorted = sortedPackagesBy[sortSelect.value] || sortedPackagesBy.downloads;
 
-    var sorted = packages.slice();
-    var sortVal = sortSelect.value;
-    if (sortVal === 'downloads') {
-      sorted.sort(function (a, b) { return (b.downloads || 0) - (a.downloads || 0); });
-    } else if (sortVal === 'recent') {
-      sorted.sort(function (a, b) { return new Date(b.date) - new Date(a.date); });
-    } else {
-      sorted.sort(function (a, b) { return a.name.localeCompare(b.name); });
-    }
+    if (!query && !typeFilters.size) return sorted;
 
     return sorted.filter(function (pkg) {
-      if (query) {
-        var inName = pkg.name.toLowerCase().indexOf(query) !== -1;
-        var inDesc = (pkg.description || '').toLowerCase().indexOf(query) !== -1;
-        var inAuthor = authorName(pkg).toLowerCase().indexOf(query) !== -1;
-        if (!inName && !inDesc && !inAuthor) return false;
-      }
+      if (query && pkg.searchText.indexOf(query) === -1) return false;
 
       if (typeFilters.size > 0) {
         var matches = (pkg.types || []).some(function (type) { return typeFilters.has(type); });
@@ -1360,9 +1379,16 @@
     filteredPackages = [];
     renderedCount = 0;
     backgroundPrefetchIndex = 0;
+    if (supplementalRenderFrame) {
+      cancelAnimationFrame(supplementalRenderFrame);
+      supplementalRenderFrame = 0;
+    }
     applyFilters();
-    renderRecent();
-    renderAuthors();
+    supplementalRenderFrame = requestAnimationFrame(function () {
+      supplementalRenderFrame = 0;
+      renderRecent();
+      renderAuthors();
+    });
   }
 
   function renderRecent() {
@@ -1372,10 +1398,9 @@
       return;
     }
 
-    packages
+    var fragment = document.createDocumentFragment();
+    sortedPackagesBy.recent
       .filter(function (pkg) { return !pkg.flag || pkg.flag.status !== 'warn'; })
-      .slice()
-      .sort(function (a, b) { return new Date(b.date) - new Date(a.date); })
       .slice(0, 8)
       .forEach(function (pkg) {
         var card = document.createElement('button');
@@ -1407,9 +1432,10 @@
         }
         card.appendChild(footer);
         card.addEventListener('click', function () { scrollToCard(pkg.name); });
-        recentScroll.appendChild(card);
+        fragment.appendChild(card);
       });
 
+    recentScroll.appendChild(fragment);
     recentSection.style.display = '';
     recentScroll.scrollLeft = 0;
     updateRecentArrows();
@@ -1428,6 +1454,8 @@
     if (!urls.length) return;
     var image = document.createElement('img');
     image.alt = '';
+    image.loading = 'lazy';
+    image.decoding = 'async';
     image.addEventListener('load', function () {
       avatar.textContent = '';
       avatar.style.backgroundColor = 'transparent';
@@ -1454,6 +1482,7 @@
       if (!emails[name] && authorEmail(pkg)) emails[name] = authorEmail(pkg).toLowerCase().trim();
     });
 
+    var fragment = document.createDocumentFragment();
     Object.keys(groups)
       .map(function (name) { return { name: name, count: groups[name] }; })
       .sort(function (a, b) { return b.count - a.count; })
@@ -1490,9 +1519,10 @@
           applyFilters();
           document.querySelector('.pkg-filters').scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
-        authorGrid.appendChild(card);
+        fragment.appendChild(card);
       });
 
+    authorGrid.appendChild(fragment);
     authorsSection.style.display = '';
   }
 
@@ -1661,14 +1691,12 @@
     }
   }
 
-  function hydrateLiveData(flags, generation) {
-    return fetchSearchResults().then(function (objects) {
-      if (generation !== fetchGeneration) return;
-      packages = processSearchResults(objects, flags);
-      packageMap = new Map(packages.map(function (pkg) { return [pkg.name, pkg]; }));
-      updateHero();
-      renderCards();
-    });
+  function hydrateLiveData(objects, flags, generation) {
+    if (generation !== fetchGeneration) return;
+    packages = processSearchResults(objects, flags);
+    rebuildPackageCaches();
+    updateHero();
+    renderCards();
   }
 
   function init() {
@@ -1683,6 +1711,10 @@
       manifestObserver.disconnect();
       manifestObserver = null;
     }
+    if (supplementalRenderFrame) {
+      cancelAnimationFrame(supplementalRenderFrame);
+      supplementalRenderFrame = 0;
+    }
 
     packages = [];
     filteredPackages = [];
@@ -1696,21 +1728,30 @@
     manifestLoading.clear();
     manifestLoaded.clear();
     backgroundPrefetchIndex = 0;
+    sortedPackagesBy = {
+      downloads: [],
+      recent: [],
+      name: []
+    };
+    heroTypeCounts = emptyTypeCounts();
     clearTimeout(backgroundPrefetchTimer);
     errorEl.style.display = 'none';
     recentSection.style.display = 'none';
     authorsSection.style.display = 'none';
     statusMeta.textContent = 'Fetching live npm data…';
-    statusNote.textContent = 'Loading npm search results first. Preview metadata is fetched only for visible cards.';
+    statusNote.textContent = 'Fetching npm search results and upstream flag data in parallel. Preview metadata is fetched only for visible cards.';
     statusProgressFill.style.width = '0%';
     statusProgressText.textContent = 'Waiting for visible packages…';
     sectionDescription.textContent = 'Loading package metadata directly from the npm registry…';
     updateFilterControls();
     showSkeletons();
 
-    fetchFlags()
-      .then(function (flags) {
-        return hydrateLiveData(flags, generation);
+    var flagsPromise = fetchFlags();
+    var searchPromise = fetchSearchResults();
+
+    Promise.all([searchPromise, flagsPromise])
+      .then(function (results) {
+        hydrateLiveData(results[0], results[1], generation);
       })
       .catch(function () {
         if (generation !== fetchGeneration) return;
