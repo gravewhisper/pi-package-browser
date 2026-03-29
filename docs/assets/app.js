@@ -930,18 +930,20 @@
     actions.appendChild(links);
 
     var npmLink = document.createElement('a');
+    npmLink.className = 'pkg-action-pill pkg-action-pill-npm';
     npmLink.target = '_blank';
     npmLink.rel = 'noopener';
     links.appendChild(npmLink);
 
     var repoLink = document.createElement('a');
+    repoLink.className = 'pkg-action-pill pkg-action-pill-repo';
     repoLink.target = '_blank';
     repoLink.rel = 'noopener';
     links.appendChild(repoLink);
 
     var readmeBtn = document.createElement('button');
     readmeBtn.type = 'button';
-    readmeBtn.className = 'pkg-readme-link';
+    readmeBtn.className = 'pkg-readme-link pkg-action-pill pkg-action-pill-readme';
     readmeBtn.innerHTML = SVG_README + ' readme';
     readmeBtn.addEventListener('click', function () {
       openReadmeModal(card._pkg || pkg);
@@ -949,11 +951,13 @@
     links.appendChild(readmeBtn);
 
     var reportLink = document.createElement('a');
+    reportLink.className = 'pkg-action-pill pkg-action-pill-report';
     reportLink.target = '_blank';
     reportLink.rel = 'noopener';
     links.appendChild(reportLink);
 
     var flagLink = document.createElement('a');
+    flagLink.className = 'pkg-action-pill pkg-action-pill-flag';
     flagLink.target = '_blank';
     flagLink.rel = 'noopener';
     links.appendChild(flagLink);

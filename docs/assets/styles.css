@@ -1336,31 +1336,88 @@ kbd {
 .pkg-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
+  gap: 0.55rem;
 }
 
-.pkg-links a,
-.pkg-readme-link {
+.pkg-action-pill,
+.pkg-readme-link,
+.pkg-links a {
+  --action-accent: rgba(255, 255, 255, 0.22);
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.35rem;
-  height: 34px;
-  padding: 0 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: rgba(255,255,255,0.03);
+  gap: 0.4rem;
+  height: 32px;
+  padding: 0 0.78rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
   color: var(--text-dim);
   text-decoration: none;
-  font-size: 0.76rem;
+  font-size: 0.74rem;
   line-height: 1;
   cursor: pointer;
 }
 
-.pkg-links a:hover,
-.pkg-readme-link:hover {
+.pkg-action-pill::after,
+.pkg-readme-link::after,
+.pkg-links a::after {
+  content: "";
+  position: absolute;
+  inset: auto 0.7rem 0.32rem;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--action-accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 140ms ease, opacity 140ms ease;
+  opacity: 0.8;
+}
+
+.pkg-action-pill:hover,
+.pkg-readme-link:hover,
+.pkg-links a:hover {
   color: var(--text);
-  border-color: var(--border-strong);
+  border-color: rgba(255, 255, 255, 0.16);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+}
+
+.pkg-action-pill:hover::after,
+.pkg-readme-link:hover::after,
+.pkg-links a:hover::after,
+.pkg-action-pill:focus-visible::after,
+.pkg-readme-link:focus-visible::after,
+.pkg-links a:focus-visible::after {
+  transform: scaleX(1);
+}
+
+.pkg-action-pill svg,
+.pkg-readme-link svg,
+.pkg-links a svg {
+  width: 13px;
+  height: 13px;
+}
+
+.pkg-action-pill-npm {
+  --action-accent: rgba(249, 115, 22, 0.82);
+}
+
+.pkg-action-pill-repo {
+  --action-accent: rgba(96, 165, 250, 0.78);
+}
+
+.pkg-action-pill-readme {
+  --action-accent: rgba(192, 132, 252, 0.76);
+}
+
+.pkg-action-pill-report {
+  --action-accent: rgba(251, 191, 36, 0.82);
+}
+
+.pkg-action-pill-flag {
+  --action-accent: rgba(248, 113, 113, 0.82);
 }
 
 .pkg-install,
@@ -1368,11 +1425,11 @@ kbd {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.65rem;
-  padding: 0.55rem 0.6rem 0.55rem 0.75rem;
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  background: rgba(0, 0, 0, 0.2);
+  gap: 0.6rem;
+  padding: 0.5rem 0.55rem 0.5rem 0.75rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(255,255,255,0.035), rgba(0,0,0,0.12));
   overflow: hidden;
 }
 
@@ -1400,11 +1457,16 @@ kbd {
 }
 
 .copy-btn {
-  width: 2.2rem;
-  min-width: 2.2rem;
-  height: 2.2rem;
-  min-height: 2.2rem;
+  width: 2rem;
+  min-width: 2rem;
+  height: 2rem;
+  min-height: 2rem;
   padding: 0;
+  border-radius: 12px;
+  border-color: rgba(255, 255, 255, 0.09);
+  background: linear-gradient(180deg, rgba(255,255,255,0.055), rgba(255,255,255,0.02));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+  color: var(--text-faint);
   flex-shrink: 0;
 }
 

@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "description": "Fast static GitHub Pages browser for npm packages tagged with pi-package",
+  "homepage": "https://gravewhisper.github.io/pi-package-browser/",
   "scripts": {
     "preview": "python3 -m http.server 4173 -d docs"
   },

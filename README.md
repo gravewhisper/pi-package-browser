@@ -2,6 +2,8 @@
 
 A fast static browser for npm packages tagged `pi-package`.
 
+Live site: https://gravewhisper.github.io/pi-package-browser/
+
 It keeps the GitHub Pages setup simple and fetches package data live from the browser.
 
 ## What it does
@@ -22,4 +24,7 @@ Then open `http://localhost:4173`.
 
 ## GitHub Pages
 
-The site is ready to publish from the `docs/` directory.
+Published site:
+- https://gravewhisper.github.io/pi-package-browser/
+
+The site is served from the `docs/` directory.
