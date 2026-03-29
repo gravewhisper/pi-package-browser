@@ -994,6 +994,13 @@ kbd {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 1rem;
+  align-content: start;
+}
+
+.pkg-grid-spacer {
+  grid-column: 1 / -1;
+  height: 0;
+  pointer-events: none;
 }
 
 .pkg-recent + .pkg-grid {

@@ -5,6 +5,11 @@
   var SEARCH_SIZE = 250;
   var BATCH_SIZE = 24;
   var MANIFEST_CONCURRENCY = 4;
+  var VIRTUAL_OVERSCAN_ROWS = 3;
+  var VIRTUAL_MIN_ROWS = 4;
+  var DEFAULT_CARD_ROW_HEIGHT_DESKTOP = 430;
+  var DEFAULT_CARD_ROW_HEIGHT_TABLET = 390;
+  var DEFAULT_CARD_ROW_HEIGHT_MOBILE = 340;
 
   var grid = document.getElementById('pkg-grid');
   var errorEl = document.getElementById('pkg-error');
@@ -72,6 +77,7 @@
   var fetchGeneration = 0;
   var hasDesktop = window.matchMedia('(hover: hover)').matches;
   var mobileFiltersMq = window.matchMedia('(max-width: 860px)');
+  var narrowViewportMq = window.matchMedia('(max-width: 640px)');
   var coarsePointerMq = window.matchMedia('(pointer: coarse)');
   var libsReady = null;
   var mediaObserver = null;
@@ -95,6 +101,12 @@
   var refreshFiltersTimer = null;
   var refreshHeroTimer = null;
   var supplementalRenderFrame = 0;
+  var virtualRenderFrame = 0;
+  var virtualRangeStart = 0;
+  var virtualRangeEnd = 0;
+  var estimatedCardRowHeight = 0;
+  var topSpacer = null;
+  var bottomSpacer = null;
   var sortedPackagesBy = {
     downloads: [],
     recent: [],
@@ -309,6 +321,12 @@
     };
   }
 
+  function defaultCardRowHeight() {
+    if (narrowViewportMq.matches) return DEFAULT_CARD_ROW_HEIGHT_MOBILE;
+    if (mobileFiltersMq.matches || coarsePointerMq.matches) return DEFAULT_CARD_ROW_HEIGHT_TABLET;
+    return DEFAULT_CARD_ROW_HEIGHT_DESKTOP;
+  }
+
   function rebuildPackageCaches() {
     var nextPackageMap = new Map();
     var nextTypeCounts = emptyTypeCounts();
@@ -479,12 +497,14 @@
     }
 
     var exists = activeCardName && filteredPackages.some(function (pkg) { return pkg.name === activeCardName; });
-    if (!exists || !cardMap[activeCardName] || !grid.contains(cardMap[activeCardName])) {
+    if (!exists) {
       setActiveCard(filteredPackages[0].name, { focus: false, scroll: false });
       return;
     }
 
-    cardMap[activeCardName].classList.add('pkg-card-active');
+    if (cardMap[activeCardName] && grid.contains(cardMap[activeCardName])) {
+      cardMap[activeCardName].classList.add('pkg-card-active');
+    }
   }
 
   function stepActiveCard(delta) {
@@ -497,11 +517,9 @@
 
   function getActivePackage() {
     if (!filteredPackages.length) return null;
-    if (!activeCardName || !cardMap[activeCardName] || !grid.contains(cardMap[activeCardName])) {
-      syncActiveCard();
-    }
-    var activeCard = activeCardName && cardMap[activeCardName];
-    return activeCard && activeCard._pkg ? activeCard._pkg : filteredPackages[0];
+    if (!activeCardName) syncActiveCard();
+    if (activeCardName && packageMap.has(activeCardName)) return packageMap.get(activeCardName);
+    return filteredPackages[0];
   }
 
   function openActivePackage() {
@@ -1242,12 +1260,56 @@
     });
   }
 
+  function ensureVirtualSpacers() {
+    if (!topSpacer) {
+      topSpacer = document.createElement('div');
+      topSpacer.className = 'pkg-grid-spacer pkg-grid-spacer-top';
+    }
+    if (!bottomSpacer) {
+      bottomSpacer = document.createElement('div');
+      bottomSpacer.className = 'pkg-grid-spacer pkg-grid-spacer-bottom';
+    }
+    if (!grid.contains(topSpacer)) grid.appendChild(topSpacer);
+    if (!grid.contains(bottomSpacer)) grid.appendChild(bottomSpacer);
+  }
+
+  function getGridColumnCount() {
+    var styles = window.getComputedStyle(grid);
+    var columns = styles.gridTemplateColumns ? styles.gridTemplateColumns.split(' ').filter(Boolean).length : 1;
+    return Math.max(1, columns || 1);
+  }
+
+  function getGridRowGap() {
+    var styles = window.getComputedStyle(grid);
+    return parseFloat(styles.rowGap || styles.gap || '16') || 16;
+  }
+
+  function updateEstimatedCardRowHeight() {
+    var cards = grid.querySelectorAll('.pkg-card');
+    if (!cards.length) {
+      estimatedCardRowHeight = defaultCardRowHeight();
+      return;
+    }
+    var maxHeight = 0;
+    Array.prototype.forEach.call(cards, function (card) {
+      maxHeight = Math.max(maxHeight, card.offsetHeight || 0);
+    });
+    estimatedCardRowHeight = maxHeight > 0
+      ? Math.max(defaultCardRowHeight(), maxHeight + getGridRowGap())
+      : defaultCardRowHeight();
+  }
+
   function clearGrid() {
     var visibleCards = grid.querySelectorAll('.pkg-card');
     Array.prototype.forEach.call(visibleCards, function (card) {
       stopObservingCard(card);
+      if (card.dataset && card.dataset.name) delete cardMap[card.dataset.name];
     });
     grid.innerHTML = '';
+    topSpacer = null;
+    bottomSpacer = null;
+    virtualRangeStart = 0;
+    virtualRangeEnd = 0;
   }
 
   function toggleEmptyState(show) {
@@ -1272,23 +1334,57 @@
   function updateResultsSummary() {
     var matching = filteredPackages.length;
     if (!matching) {
-      countEl.textContent = '0 shown · 0 matches';
+      countEl.textContent = '0 rendered · 0 matches';
       resultsFooter.style.display = 'none';
       if (loadMoreObserver) loadMoreObserver.unobserve(scrollSentinel);
       scheduleHeroRefresh();
       return;
     }
 
-    countEl.textContent = formatNumber(renderedCount) + ' shown · ' + formatNumber(matching) + ' matches';
+    countEl.textContent = formatNumber(renderedCount) + ' rendered · ' + formatNumber(matching) + ' matches';
     resultsFooter.style.display = '';
-    resultsSummary.textContent = renderedCount < matching
-      ? 'Showing ' + renderedCount + ' cards now. Scroll or tap load more to continue browsing ' + matching + ' matches.'
-      : 'Showing all ' + matching + ' matching packages.';
-    loadMoreBtn.style.display = renderedCount < matching ? '' : 'none';
-    syncLoadMoreObserver();
+    resultsSummary.textContent = 'Virtualized list active: mounting about ' + renderedCount + ' cards around the viewport while preserving access to all ' + matching + ' matches.';
+    loadMoreBtn.style.display = 'none';
+    if (loadMoreObserver) loadMoreObserver.unobserve(scrollSentinel);
   }
 
-  function renderNextBatch(reset) {
+  function getVirtualRange(anchorIndex) {
+    var columns = getGridColumnCount();
+    var rowHeight = Math.max(estimatedCardRowHeight || 0, defaultCardRowHeight());
+    var totalRows = Math.max(1, Math.ceil(filteredPackages.length / columns));
+    var gridTop = window.scrollY + grid.getBoundingClientRect().top;
+    var viewportTop = Math.max(0, window.scrollY - gridTop);
+    var viewportBottom = viewportTop + window.innerHeight;
+    var startRow = Math.max(0, Math.floor(viewportTop / rowHeight) - VIRTUAL_OVERSCAN_ROWS);
+    var endRow = Math.min(totalRows, Math.ceil(viewportBottom / rowHeight) + VIRTUAL_OVERSCAN_ROWS);
+
+    if (endRow - startRow < VIRTUAL_MIN_ROWS) endRow = Math.min(totalRows, startRow + VIRTUAL_MIN_ROWS);
+
+    if (typeof anchorIndex === 'number' && anchorIndex >= 0) {
+      var anchorRow = Math.floor(anchorIndex / columns);
+      if (anchorRow < startRow) {
+        startRow = Math.max(0, anchorRow - 1);
+        endRow = Math.min(totalRows, Math.max(endRow, startRow + VIRTUAL_MIN_ROWS));
+      } else if (anchorRow >= endRow) {
+        endRow = Math.min(totalRows, anchorRow + 2);
+        startRow = Math.max(0, Math.min(startRow, endRow - VIRTUAL_MIN_ROWS));
+      }
+    }
+
+    var start = startRow * columns;
+    var end = Math.min(filteredPackages.length, endRow * columns);
+    return {
+      start: start,
+      end: Math.max(start, end),
+      startRow: startRow,
+      endRow: endRow,
+      totalRows: totalRows,
+      rowHeight: rowHeight,
+      columns: columns
+    };
+  }
+
+  function renderNextBatch(reset, anchorIndex) {
     if (reset) {
       clearGrid();
       renderedCount = 0;
@@ -1305,29 +1401,60 @@
       return;
     }
 
-    var nextCount = Math.min(filteredPackages.length, renderedCount + currentBatchSize());
-    var fragment = document.createDocumentFragment();
-    var appendedCards = [];
+    ensureVirtualSpacers();
+    var range = getVirtualRange(anchorIndex);
+    if (!reset && range.start === virtualRangeStart && range.end === virtualRangeEnd) {
+      renderedCount = range.end - range.start;
+      updateResultsSummary();
+      return;
+    }
 
-    for (var i = renderedCount; i < nextCount; i++) {
+    var cards = grid.querySelectorAll('.pkg-card');
+    Array.prototype.forEach.call(cards, function (card) {
+      stopObservingCard(card);
+      if (card.dataset && card.dataset.name) delete cardMap[card.dataset.name];
+      card.remove();
+    });
+
+    topSpacer.style.height = (range.startRow * range.rowHeight) + 'px';
+    bottomSpacer.style.height = (Math.max(0, range.totalRows - range.endRow) * range.rowHeight) + 'px';
+
+    var fragment = document.createDocumentFragment();
+    var mountedCards = [];
+
+    for (var i = range.start; i < range.end; i++) {
       var pkg = filteredPackages[i];
       var card = getOrCreateCard(pkg);
       fragment.appendChild(card);
-      appendedCards.push(card);
+      mountedCards.push(card);
     }
 
-    grid.appendChild(fragment);
-    renderedCount = nextCount;
+    grid.insertBefore(topSpacer, grid.firstChild || null);
+    grid.insertBefore(fragment, bottomSpacer);
+    if (!grid.contains(bottomSpacer)) grid.appendChild(bottomSpacer);
 
-    appendedCards.forEach(function (card) {
+    virtualRangeStart = range.start;
+    virtualRangeEnd = range.end;
+    renderedCount = mountedCards.length;
+
+    mountedCards.forEach(function (card) {
       if (!card || !card._pkg) return;
       scheduleManifest(card, card._pkg);
       if (card._pkg.video || card._pkg.image) scheduleMedia(card, card._pkg);
     });
 
+    updateEstimatedCardRowHeight();
     syncActiveCard();
     updateResultsSummary();
     scheduleHeroRefresh();
+  }
+
+  function scheduleVirtualRender(anchorIndex) {
+    if (virtualRenderFrame) cancelAnimationFrame(virtualRenderFrame);
+    virtualRenderFrame = requestAnimationFrame(function () {
+      virtualRenderFrame = 0;
+      renderNextBatch(false, anchorIndex);
+    });
   }
 
   function applyFilters() {
@@ -1337,9 +1464,7 @@
   }
 
   function ensureRenderedThroughIndex(index) {
-    while (renderedCount <= index && renderedCount < filteredPackages.length) {
-      renderNextBatch();
-    }
+    renderNextBatch(false, index);
   }
 
   function scrollToCard(name) {
@@ -1382,6 +1507,10 @@
     if (supplementalRenderFrame) {
       cancelAnimationFrame(supplementalRenderFrame);
       supplementalRenderFrame = 0;
+    }
+    if (virtualRenderFrame) {
+      cancelAnimationFrame(virtualRenderFrame);
+      virtualRenderFrame = 0;
     }
     applyFilters();
     supplementalRenderFrame = requestAnimationFrame(function () {
@@ -1715,6 +1844,10 @@
       cancelAnimationFrame(supplementalRenderFrame);
       supplementalRenderFrame = 0;
     }
+    if (virtualRenderFrame) {
+      cancelAnimationFrame(virtualRenderFrame);
+      virtualRenderFrame = 0;
+    }
 
     packages = [];
     filteredPackages = [];
@@ -1728,6 +1861,7 @@
     manifestLoading.clear();
     manifestLoaded.clear();
     backgroundPrefetchIndex = 0;
+    estimatedCardRowHeight = defaultCardRowHeight();
     sortedPackagesBy = {
       downloads: [],
       recent: [],
@@ -1840,7 +1974,18 @@
 
   retryBtn.addEventListener('click', init);
   loadMoreBtn.addEventListener('click', function () {
-    renderNextBatch();
+    scheduleVirtualRender();
+  });
+
+  window.addEventListener('scroll', function () {
+    if (!filteredPackages.length) return;
+    scheduleVirtualRender();
+  }, { passive: true });
+
+  window.addEventListener('resize', function () {
+    if (!filteredPackages.length) return;
+    estimatedCardRowHeight = defaultCardRowHeight();
+    scheduleVirtualRender();
   });
 
   recentScroll.addEventListener('scroll', function () {
