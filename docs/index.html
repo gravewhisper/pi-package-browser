@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pi Packages Browser</title>
+  <meta name="description" content="Fast static GitHub Pages browser for npm packages tagged with pi-package.">
+  <meta name="theme-color" content="#08090c">
+  <link rel="icon" href="./assets/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./assets/styles.css">
+  <script defer src="./assets/app.js"></script>
+</head>
+<body>
+  <main class="page-shell">
+    <header class="hero">
+      <div class="hero-bar">
+        <div class="hero-brand">
+          <a class="hero-logo-wrap" href="https://pi.dev" target="_blank" rel="noopener" aria-label="Open pi.dev">
+            <img src="./assets/logo.svg" alt="Pi logo" class="hero-logo">
+          </a>
+          <div class="hero-copy">
+            <div class="hero-kicker">Live npm index</div>
+            <h1>Pi Packages</h1>
+            <p class="hero-subtitle">Fast live browser for npm packages tagged <code>pi-package</code>.</p>
+          </div>
+        </div>
+
+        <nav class="hero-links" aria-label="Primary links">
+          <a href="https://www.npmjs.com/search?q=keywords%3Api-package" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M0 0v24h24v-24h-24zm19.2 19.2h-2.4v-9.6h-4.8v9.6h-7.2v-14.4h14.4v14.4z"/></svg>
+            npm
+          </a>
+          <a href="https://shittycodingagent.ai/packages" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            upstream
+          </a>
+          <a href="https://github.com/badlogic/pi-mono/tree/main/packages/coding-agent" target="_blank" rel="noopener">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+            docs
+          </a>
+        </nav>
+      </div>
+
+      <div class="hero-status-row">
+        <div class="status-bar">
+          <div class="status-copy">
+            <div class="status-meta" id="status-meta">Fetching live npm data…</div>
+            <div class="status-note">Visible cards are enriched first, then the rest follow.</div>
+          </div>
+          <div class="status-progress-block">
+            <div class="status-progress-track" aria-hidden="true">
+              <span class="status-progress-fill" id="status-progress-fill"></span>
+            </div>
+            <div class="status-progress-text" id="status-progress-text">Waiting for package data…</div>
+          </div>
+        </div>
+        <div class="hero-stats" id="hero-stats" aria-live="polite"></div>
+      </div>
+    </header>
+
+    <section class="pkg-header" aria-labelledby="browse-heading">
+      <div class="pkg-header-main">
+        <div>
+          <div class="section-label">Browse</div>
+          <h2 id="browse-heading">Browse the ecosystem</h2>
+          <p id="pkg-section-description">Loading package metadata directly from npm…</p>
+        </div>
+        <div class="pkg-header-tip">
+          <span>Press</span>
+          <kbd>/</kbd>
+          <span>to search</span>
+          <span class="pkg-header-tip-divider" aria-hidden="true">·</span>
+          <kbd>?</kbd>
+          <span>for shortcuts</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="pkg-filters" aria-label="Package filters">
+      <div class="pkg-filter-row pkg-filter-row-primary">
+        <label class="pkg-search-wrap">
+          <span class="pkg-search-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><path d="m21 21-4.3-4.3"></path></svg>
+          </span>
+          <input type="text" class="pkg-search" placeholder="Search packages, descriptions, or authors…" aria-label="Search packages">
+          <button type="button" class="pkg-search-clear" id="pkg-search-clear" hidden>Clear</button>
+        </label>
+        <button type="button" class="pkg-mobile-filters-toggle" id="pkg-mobile-filters-toggle" aria-expanded="false" aria-controls="pkg-filter-panel">
+          <span class="pkg-mobile-filters-label">Filters</span>
+          <span class="pkg-mobile-filters-badge" id="pkg-mobile-filters-badge" hidden>0</span>
+        </button>
+      </div>
+      <div class="pkg-filter-panel-backdrop" id="pkg-filter-panel-backdrop" hidden></div>
+      <div class="pkg-filter-panel" id="pkg-filter-panel" aria-hidden="true">
+        <div class="pkg-filter-panel-header">
+          <div>
+            <div class="pkg-filter-panel-title">Refine results</div>
+            <div class="pkg-filter-panel-note">Type filters improve as manifests load.</div>
+          </div>
+          <button type="button" class="pkg-filter-panel-close" id="pkg-filter-panel-close" aria-label="Close filters">&times;</button>
+        </div>
+        <div class="pkg-filter-panel-group pkg-filter-panel-group-controls">
+          <div class="pkg-filter-panel-group-label">Sort and reset</div>
+          <div class="pkg-filter-row pkg-filter-row-controls">
+            <div class="pkg-control-group">
+              <div class="pkg-sort-menu" id="pkg-sort-menu">
+                <button type="button" class="pkg-sort-trigger" id="pkg-sort-trigger" aria-haspopup="listbox" aria-expanded="false" aria-controls="pkg-sort-popover">
+                  <span class="pkg-sort-trigger-label">Sort</span>
+                  <span class="pkg-sort-trigger-value" id="pkg-sort-trigger-value">Most downloads</span>
+                  <svg class="pkg-sort-trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+                </button>
+                <div class="pkg-sort-popover" id="pkg-sort-popover" role="listbox" aria-label="Sort packages" hidden>
+                  <button type="button" class="pkg-sort-option is-active" role="option" aria-selected="true" data-value="downloads">Most downloads</button>
+                  <button type="button" class="pkg-sort-option" role="option" aria-selected="false" data-value="recent">Recently published</button>
+                  <button type="button" class="pkg-sort-option" role="option" aria-selected="false" data-value="name">A–Z</button>
+                </div>
+                <select class="pkg-sort" aria-label="Sort packages" hidden>
+                  <option value="downloads">Most downloads</option>
+                  <option value="recent">Recently published</option>
+                  <option value="name">A–Z</option>
+                </select>
+              </div>
+              <button type="button" class="pkg-clear-filters" id="pkg-clear-filters" disabled>Reset filters</button>
+            </div>
+          </div>
+        </div>
+        <div class="pkg-filter-panel-group pkg-filter-panel-group-types">
+          <div class="pkg-filter-panel-group-label">Filter by package type</div>
+          <div class="pkg-filter-row pkg-filter-row-secondary">
+            <div class="pkg-pills" role="group" aria-label="Type filters">
+              <button type="button" class="pkg-pill" data-type="extension">extension</button>
+              <button type="button" class="pkg-pill" data-type="skill">skill</button>
+              <button type="button" class="pkg-pill" data-type="theme">theme</button>
+              <button type="button" class="pkg-pill" data-type="prompt">prompt</button>
+            </div>
+            <div class="pkg-filter-meta">
+              <span class="pkg-hint">Search updates as manifests load</span>
+              <span class="pkg-count">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pkg-recent" id="pkg-recent" style="display:none">
+      <div class="pkg-section-head">
+        <div>
+          <div class="section-label">Recent</div>
+          <h3>Fresh releases</h3>
+        </div>
+        <p>Jump straight to the newest packages without scanning the full grid.</p>
+      </div>
+      <div class="pkg-recent-track">
+        <div class="pkg-recent-scroll" id="pkg-recent-scroll"></div>
+        <button type="button" class="pkg-recent-arrow pkg-recent-prev" aria-label="Scroll left">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button type="button" class="pkg-recent-arrow pkg-recent-next" aria-label="Scroll right">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <section class="pkg-grid" id="pkg-grid" aria-live="polite"></section>
+
+    <div class="pkg-results-footer" id="pkg-results-footer" style="display:none">
+      <div class="pkg-results-summary" id="pkg-results-summary"></div>
+      <button type="button" class="pkg-load-more" id="pkg-load-more">Load more packages</button>
+      <div class="pkg-scroll-sentinel" id="pkg-scroll-sentinel" aria-hidden="true"></div>
+    </div>
+
+    <section class="pkg-error" id="pkg-error" style="display:none">
+      <p>Couldn’t load package data from npm.</p>
+      <button type="button" id="pkg-retry">Retry</button>
+    </section>
+
+    <section class="pkg-authors" id="pkg-authors" style="display:none">
+      <div class="pkg-section-head">
+        <div>
+          <div class="section-label">Authors</div>
+          <h3>Browse by maintainer</h3>
+        </div>
+        <p class="pkg-authors-subtitle">Filter the grid by publisher when you already know whose ecosystem you want to inspect.</p>
+      </div>
+      <div class="pkg-author-grid" id="pkg-author-grid"></div>
+    </section>
+
+    <section class="footer-note">
+      This browser keeps the first screen light, prioritizes visible cards for enrichment, and then fills in the rest progressively in the background.
+      It still mirrors the spirit of <a href="https://shittycodingagent.ai/packages" target="_blank" rel="noopener">the upstream gallery</a>, just with a cleaner browsing flow.
+    </section>
+  </main>
+
+  <div class="pkg-modal" id="pkg-modal" role="dialog" aria-modal="true">
+    <div class="pkg-modal-content">
+      <button type="button" class="pkg-modal-close" aria-label="Close">&times;</button>
+      <div class="pkg-modal-player">
+        <video controls playsinline preload="metadata"></video>
+        <img alt="preview">
+      </div>
+      <div class="pkg-modal-info">
+        <div class="pkg-modal-info-left">
+          <a class="pkg-modal-name" target="_blank" rel="noopener"></a>
+          <span class="pkg-modal-desc"></span>
+        </div>
+        <div class="pkg-modal-install">
+          <code></code>
+          <button type="button" class="copy-btn">Copy</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pkg-readme" id="pkg-readme" role="dialog" aria-modal="true">
+    <div class="pkg-readme-dialog">
+      <div class="pkg-readme-header">
+        <div class="pkg-readme-header-left">
+          <a class="pkg-readme-pkg-name" target="_blank" rel="noopener"></a>
+          <span class="pkg-readme-version"></span>
+        </div>
+        <button type="button" class="pkg-readme-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="pkg-readme-body" id="pkg-readme-body"></div>
+    </div>
+  </div>
+
+  <div class="pkg-shortcuts" id="pkg-shortcuts" role="dialog" aria-modal="true" aria-labelledby="pkg-shortcuts-title">
+    <div class="pkg-shortcuts-dialog">
+      <div class="pkg-shortcuts-header">
+        <div>
+          <div class="section-label">Shortcuts</div>
+          <h3 id="pkg-shortcuts-title">Keyboard shortcuts</h3>
+          <p>Desktop-first power controls for searching, filtering, and moving through package cards.</p>
+        </div>
+        <button type="button" class="pkg-shortcuts-close" aria-label="Close shortcuts">&times;</button>
+      </div>
+      <div class="pkg-shortcuts-grid">
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>/</kbd></div><div><strong>Focus search</strong><span>Jump straight to the main search box.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>?</kbd></div><div><strong>Open shortcuts</strong><span>Show or hide this help panel.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>f</kbd></div><div><strong>Open filters</strong><span>Toggle the filter panel on mobile or jump to filters on desktop.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>s</kbd></div><div><strong>Open sort menu</strong><span>Toggle the custom sort picker.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd><kbd>4</kbd></div><div><strong>Toggle type filters</strong><span>extension, skill, theme, prompt.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>0</kbd></div><div><strong>Reset filters</strong><span>Clear search, sort, and all active type pills.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>j</kbd><kbd>k</kbd></div><div><strong>Move between cards</strong><span>Advance to the next or previous package card.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>Enter</kbd></div><div><strong>Open npm page</strong><span>Open the focused package on npm.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>r</kbd></div><div><strong>Open README</strong><span>Show the focused package README in the modal.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>v</kbd></div><div><strong>Open preview</strong><span>Open video/image preview when the package has one.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>c</kbd></div><div><strong>Copy install command</strong><span>Copy <code>pi install npm:&lt;package&gt;</code> for the focused card.</span></div></div>
+        <div class="pkg-shortcuts-item"><div class="pkg-shortcuts-keys"><kbd>Esc</kbd></div><div><strong>Close current panel</strong><span>Closes modals, sort menu, mobile filters, or this shortcut sheet.</span></div></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

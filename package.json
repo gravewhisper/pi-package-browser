@@ -1,0 +1,13 @@
+{
+  "name": "pi-package-browser",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fast static GitHub Pages browser for npm packages tagged with pi-package",
+  "scripts": {
+    "preview": "python3 -m http.server 4173 -d docs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
