@@ -1232,6 +1232,9 @@ kbd {
 
 .pkg-state {
   flex-shrink: 0;
+  min-width: 7.25rem;
+  justify-content: center;
+  text-align: center;
   color: var(--text);
   font-size: 0.68rem;
   letter-spacing: 0.03em;
