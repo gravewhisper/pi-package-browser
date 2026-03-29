@@ -568,20 +568,7 @@
   }
 
   function scheduleBackgroundPrefetch() {
-    clearTimeout(backgroundPrefetchTimer);
-    if (!packages.length || backgroundPrefetchIndex >= packages.length) return;
-
-    backgroundPrefetchTimer = setTimeout(function () {
-      var queued = 0;
-      while (backgroundPrefetchIndex < packages.length && queued < 12) {
-        var pkg = packages[backgroundPrefetchIndex++];
-        if (!manifestLoaded.has(pkg.name) && !manifestLoading.has(pkg.name) && !manifestQueued.has(pkg.name)) {
-          queueManifest(pkg, false);
-          queued += 1;
-        }
-      }
-      if (backgroundPrefetchIndex < packages.length) scheduleBackgroundPrefetch();
-    }, 800);
+    return;
   }
 
   function updateHero() {
@@ -600,19 +587,19 @@
 
     heroStats.innerHTML = [
       statCard('Packages', formatNumber(packages.length), 'Live npm matches'),
-      statCard('Enriched', formatNumber(manifestsLoaded), 'Latest manifests merged in'),
+      statCard('Checked', formatNumber(manifestsLoaded), 'Visible manifests checked for previews'),
       statCard('Visible now', formatNumber(Math.min(renderedCount, filteredPackages.length || packages.length)), 'Cards currently on screen'),
-      statCard('Extensions', formatNumber(typeCounts.extension), 'Detected so far'),
-      statCard('Skills', formatNumber(typeCounts.skill), 'Detected so far'),
-      statCard('Themes', formatNumber(typeCounts.theme), 'Detected so far')
+      statCard('Extensions', formatNumber(typeCounts.extension), 'Keyword-detected'),
+      statCard('Skills', formatNumber(typeCounts.skill), 'Keyword-detected'),
+      statCard('Themes', formatNumber(typeCounts.theme), 'Keyword-detected')
     ].join('');
 
-    var ratio = packages.length ? manifestsLoaded / packages.length : 0;
+    var ratio = renderedCount ? Math.min(1, manifestsLoaded / renderedCount) : 0;
     statusProgressFill.style.width = (ratio * 100).toFixed(1) + '%';
-    statusProgressText.textContent = manifestsLoaded + ' of ' + packages.length + ' manifests enriched';
-    statusMeta.textContent = 'Live npm registry data · ' + formatNumber(packages.length) + ' packages';
-    statusNote.textContent = 'Visible cards are prioritized first, then the rest are enriched gradually in the background.';
-    sectionDescription.textContent = 'Search results come from the npm registry in real time. Package manifests are loaded progressively so browsing, filtering, and copying install commands stay responsive.';
+    statusProgressText.textContent = manifestsLoaded + ' visible package manifests checked';
+    statusMeta.textContent = 'Live npm registry data · ' + formatNumber(packages.length) + ' packages loaded';
+    statusNote.textContent = 'Preview metadata is fetched only for cards near the viewport. Type filters use npm keywords.';
+    sectionDescription.textContent = 'Search results come from the npm registry in real time. Cards stream into the grid, and preview metadata is fetched only when a package nears view.';
   }
 
   function scheduleHeroRefresh() {
@@ -635,7 +622,7 @@
     if (!types.length) {
       var generic = document.createElement('span');
       generic.className = 'pkg-badge';
-      generic.textContent = pkg.manifestState === 'loading' ? 'loading metadata' : 'package';
+      generic.textContent = 'package';
       container.appendChild(generic);
     } else {
       types.forEach(function (type) {
@@ -732,6 +719,30 @@
         injectMedia(entry.target, entry.target._pkg);
       });
     }, { rootMargin: '600px 0px' });
+  }
+
+  function cardNearViewport(card, margin) {
+    if (!card) return false;
+    var rect = card.getBoundingClientRect();
+    var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    return rect.bottom >= -margin && rect.top <= viewportHeight + margin;
+  }
+
+  function scheduleManifest(card, pkg) {
+    if (!card || !pkg || manifestLoaded.has(pkg.name) || manifestLoading.has(pkg.name) || manifestQueued.has(pkg.name)) return;
+    if (!cardNearViewport(card, 280)) return;
+    queueManifest(pkg, true);
+  }
+
+  function scheduleVisibleManifestChecks() {
+    clearTimeout(scheduleVisibleManifestChecks._timer);
+    scheduleVisibleManifestChecks._timer = setTimeout(function () {
+      Object.keys(cardMap).forEach(function (name) {
+        var card = cardMap[name];
+        if (!card || !card._pkg) return;
+        scheduleManifest(card, card._pkg);
+      });
+    }, 40);
   }
 
   function scheduleMedia(card, pkg) {
@@ -845,9 +856,6 @@
 
   function manifestStateLabel(pkg) {
     if (pkg.video || pkg.image) return 'demo';
-    if (pkg.manifestState === 'loading' || pkg.manifestState === 'queued') return 'enriching';
-    if (pkg.manifestState === 'ready') return 'ready';
-    if (pkg.manifestState === 'error') return 'search-only';
     return 'live';
   }
 
@@ -1011,7 +1019,6 @@
     };
 
     updateCard(card, pkg);
-    queueManifest(pkg, true);
     return card;
   }
 
@@ -1024,8 +1031,7 @@
     refs.nameLink.href = npmUrl(pkg);
     refs.subline.textContent = pkg.links && pkg.links.repository ? 'repo linked' : 'npm search result';
     refs.state.textContent = manifestStateLabel(pkg);
-    refs.state.dataset.state = pkg.manifestState || 'idle';
-    if (pkg.video || pkg.image) refs.state.dataset.state = 'demo';
+    refs.state.dataset.state = pkg.video || pkg.image ? 'demo' : 'idle';
 
     refs.desc.textContent = pkg.description || 'No description';
 
@@ -1081,7 +1087,6 @@
     if (!pkg || manifestLoaded.has(pkg.name) || manifestLoading.has(pkg.name) || manifestQueued.has(pkg.name)) return;
     manifestQueued.add(pkg.name);
     pkg.manifestState = 'queued';
-    if (cardMap[pkg.name]) updateCard(cardMap[pkg.name], pkg);
     if (priority) manifestQueue.unshift(pkg);
     else manifestQueue.push(pkg);
     processManifestQueue();
@@ -1090,7 +1095,6 @@
   function startManifestFetch(pkg) {
     manifestLoading.add(pkg.name);
     pkg.manifestState = 'loading';
-    if (cardMap[pkg.name]) updateCard(cardMap[pkg.name], pkg);
 
     fetchJson(MANIFEST_API + encodeURIComponent(pkg.name) + '/latest')
       .then(function (manifest) {
@@ -1134,20 +1138,12 @@
     if (!pkg || !manifest) return;
 
     var pi = manifest.pi || null;
-    var manifestTypes = typesFromManifest(pi);
-    if (manifestTypes.length) pkg.types = unique((pkg.types || []).concat(manifestTypes));
-    pkg.description = manifest.description || pkg.description;
-    pkg.links.repository = normalizeRepo(manifest.repository && manifest.repository.url || manifest.repository) || pkg.links.repository;
-    pkg.links.homepage = manifest.homepage || pkg.links.homepage;
     pkg.video = videoFromManifest(pi) || pkg.video;
     pkg.image = imageFromManifest(pi) || pkg.image;
-    pkg.version = manifest.version || pkg.version;
     pkg.manifestState = 'ready';
 
     var card = cardMap[pkg.name];
     if (card) updateCard(card, pkg);
-
-    if (activeTypes.size > 0 || searchInput.value.trim()) scheduleFilterRefresh();
   }
 
   function scheduleFilterRefresh() {
@@ -1277,7 +1273,6 @@
     for (var i = renderedCount; i < nextCount; i++) {
       var pkg = filteredPackages[i];
       fragment.appendChild(getOrCreateCard(pkg));
-      queueManifest(pkg, true);
     }
 
     grid.appendChild(fragment);
@@ -1285,7 +1280,7 @@
     syncActiveCard();
     updateResultsSummary();
     scheduleHeroRefresh();
-    scheduleBackgroundPrefetch();
+    scheduleVisibleManifestChecks();
   }
 
   function applyFilters() {
@@ -1645,7 +1640,6 @@
       packageMap = new Map(packages.map(function (pkg) { return [pkg.name, pkg]; }));
       updateHero();
       renderCards();
-      scheduleBackgroundPrefetch();
     });
   }
 
@@ -1670,9 +1664,9 @@
     recentSection.style.display = 'none';
     authorsSection.style.display = 'none';
     statusMeta.textContent = 'Fetching live npm data…';
-    statusNote.textContent = 'Pulling npm search results first, then manifest details for visible packages.';
+    statusNote.textContent = 'Loading npm search results first. Preview metadata is fetched only for visible cards.';
     statusProgressFill.style.width = '0%';
-    statusProgressText.textContent = 'Waiting for package data…';
+    statusProgressText.textContent = 'Waiting for visible packages…';
     sectionDescription.textContent = 'Loading package metadata directly from the npm registry…';
     updateFilterControls();
     showSkeletons();
@@ -1804,6 +1798,9 @@
     if (event.target === shortcutsEl) closeShortcuts();
   });
   shortcutsClose.addEventListener('click', closeShortcuts);
+
+  window.addEventListener('scroll', scheduleVisibleManifestChecks, { passive: true });
+  window.addEventListener('resize', scheduleVisibleManifestChecks);
 
   document.addEventListener('click', function (event) {
     if (shortcutsEl.classList.contains('open')) return;
