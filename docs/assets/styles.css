@@ -1050,6 +1050,13 @@ kbd {
     linear-gradient(180deg, #0d1119, #090c12 58%, #06080b);
 }
 
+.pkg-media-inner.is-placeholder {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(249, 115, 22, 0.16), transparent 24%),
+    radial-gradient(circle at 85% 16%, rgba(96, 165, 250, 0.16), transparent 28%),
+    linear-gradient(180deg, #0d1119, #090c12 58%, #06080b);
+}
+
 .pkg-media-inner.is-placeholder::before {
   content: "";
   position: absolute;
@@ -1136,6 +1143,24 @@ kbd {
   display: grid;
   gap: 0.25rem;
   max-width: 75%;
+}
+
+.pkg-media-placeholder.is-quiet .pkg-media-placeholder-glow {
+  inset: auto auto -3.8rem -2.4rem;
+  width: 9rem;
+  height: 9rem;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.14), transparent 72%);
+}
+
+.pkg-media-placeholder.is-quiet .pkg-media-placeholder-pill {
+  background: rgba(255, 255, 255, 0.045);
+}
+
+.pkg-media-placeholder.is-quiet .pkg-media-placeholder-mark {
+  right: 0.95rem;
+  bottom: -0.32rem;
+  color: rgba(255, 255, 255, 0.09);
+  font-size: clamp(3rem, 4.6vw, 4.2rem);
 }
 
 .pkg-media-placeholder-note {

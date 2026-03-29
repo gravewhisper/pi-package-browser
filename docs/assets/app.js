@@ -678,11 +678,9 @@
 
   function mediaPlaceholderNote(pkg, override) {
     if (override) return override;
-    if (!pkg) return 'Live npm package';
-    if (pkg.manifestState === 'loading' || pkg.manifestState === 'queued') return 'Checking for previews';
-    if (pkg.manifestState === 'ready') return 'No preview attached';
+    if (!pkg) return '';
     if (pkg.manifestState === 'error') return 'Preview unavailable';
-    return 'Live npm package';
+    return '';
   }
 
   function renderMediaPlaceholder(inner, pkg, overrideNote) {
@@ -694,6 +692,9 @@
     var placeholder = document.createElement('div');
     placeholder.className = 'pkg-media-placeholder';
 
+    var noteText = mediaPlaceholderNote(pkg, overrideNote);
+    if (!noteText) placeholder.classList.add('is-quiet');
+
     var glow = document.createElement('div');
     glow.className = 'pkg-media-placeholder-glow';
     placeholder.appendChild(glow);
@@ -704,13 +705,15 @@
     badge.textContent = mediaPlaceholderType(pkg);
     placeholder.appendChild(badge);
 
-    var meta = document.createElement('div');
-    meta.className = 'pkg-media-placeholder-meta';
-    var note = document.createElement('div');
-    note.className = 'pkg-media-placeholder-note';
-    note.textContent = mediaPlaceholderNote(pkg, overrideNote);
-    meta.appendChild(note);
-    placeholder.appendChild(meta);
+    if (noteText) {
+      var meta = document.createElement('div');
+      meta.className = 'pkg-media-placeholder-meta';
+      var note = document.createElement('div');
+      note.className = 'pkg-media-placeholder-note';
+      note.textContent = noteText;
+      meta.appendChild(note);
+      placeholder.appendChild(meta);
+    }
 
     var mark = document.createElement('div');
     mark.className = 'pkg-media-placeholder-mark';
