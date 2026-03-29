@@ -2485,3 +2485,58 @@ kbd {
     padding: 1rem;
   }
 }
+
+@media (max-width: 860px), (pointer: coarse) {
+  body::before {
+    display: none;
+  }
+
+  .hero,
+  .pkg-filters,
+  .pkg-card,
+  .pkg-recent-card,
+  .pkg-author-card,
+  .status-bar,
+  .footer-note,
+  .pkg-results-footer,
+  .pkg-error,
+  .pkg-empty,
+  .pkg-readme-dialog,
+  .pkg-shortcuts-dialog,
+  .pkg-modal-content {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .pkg-filters {
+    background: rgba(8, 10, 16, 0.98);
+  }
+
+  .pkg-card {
+    background: rgba(13, 16, 23, 0.98);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  }
+
+  .pkg-card:hover {
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+  }
+
+  .pkg-highlight {
+    box-shadow: 0 0 0 1px rgba(249, 115, 22, 0.14), 0 12px 28px rgba(249, 115, 22, 0.08);
+  }
+
+  .pkg-card-active {
+    box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.16), 0 12px 28px rgba(96, 165, 250, 0.08);
+  }
+
+  .pkg-media-wrap,
+  .pkg-media-inner,
+  .pkg-media-inner.is-placeholder {
+    background: linear-gradient(180deg, #0d1119, #080b11 62%, #06080b);
+  }
+
+  .pkg-media-inner.is-placeholder::before,
+  .pkg-media-placeholder-glow {
+    display: none;
+  }
+}

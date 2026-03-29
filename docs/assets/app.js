@@ -72,8 +72,10 @@
   var fetchGeneration = 0;
   var hasDesktop = window.matchMedia('(hover: hover)').matches;
   var mobileFiltersMq = window.matchMedia('(max-width: 860px)');
+  var coarsePointerMq = window.matchMedia('(pointer: coarse)');
   var libsReady = null;
   var mediaObserver = null;
+  var manifestObserver = null;
   var loadMoreObserver = null;
   var manifestQueue = [];
   var manifestQueued = new Set();
@@ -339,6 +341,10 @@
 
   function isMobileFiltersMode() {
     return mobileFiltersMq.matches;
+  }
+
+  function currentBatchSize() {
+    return (mobileFiltersMq.matches || coarsePointerMq.matches) ? 10 : BATCH_SIZE;
   }
 
   function sortLabel(value) {
@@ -714,39 +720,44 @@
     if (mediaObserver || !('IntersectionObserver' in window)) return;
     mediaObserver = new IntersectionObserver(function (entries) {
       entries.forEach(function (entry) {
-        if (!entry.isIntersecting) return;
-        mediaObserver.unobserve(entry.target);
-        injectMedia(entry.target, entry.target._pkg);
+        var card = entry.target;
+        if (!entry.isIntersecting || !card) return;
+        mediaObserver.unobserve(card);
+        if (!card.isConnected) return;
+        injectMedia(card, card._pkg);
       });
     }, { rootMargin: '600px 0px' });
   }
 
-  function cardNearViewport(card, margin) {
-    if (!card) return false;
-    var rect = card.getBoundingClientRect();
-    var viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
-    return rect.bottom >= -margin && rect.top <= viewportHeight + margin;
+  function ensureManifestObserver() {
+    if (manifestObserver || !('IntersectionObserver' in window)) return;
+    manifestObserver = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        var card = entry.target;
+        if (!entry.isIntersecting || !card) return;
+        manifestObserver.unobserve(card);
+        if (!card.isConnected || !card._pkg) return;
+        queueManifest(card._pkg, true);
+      });
+    }, { rootMargin: '320px 0px' });
+  }
+
+  function stopObservingCard(card) {
+    if (!card) return;
+    if (mediaObserver) mediaObserver.unobserve(card);
+    if (manifestObserver) manifestObserver.unobserve(card);
   }
 
   function scheduleManifest(card, pkg) {
-    if (!card || !pkg || manifestLoaded.has(pkg.name) || manifestLoading.has(pkg.name) || manifestQueued.has(pkg.name)) return;
-    if (!cardNearViewport(card, 280)) return;
-    queueManifest(pkg, true);
-  }
-
-  function scheduleVisibleManifestChecks() {
-    clearTimeout(scheduleVisibleManifestChecks._timer);
-    scheduleVisibleManifestChecks._timer = setTimeout(function () {
-      Object.keys(cardMap).forEach(function (name) {
-        var card = cardMap[name];
-        if (!card || !card._pkg) return;
-        scheduleManifest(card, card._pkg);
-      });
-    }, 40);
+    if (!card || !pkg || !card.isConnected || manifestLoaded.has(pkg.name) || manifestLoading.has(pkg.name) || manifestQueued.has(pkg.name)) return;
+    card._pkg = pkg;
+    ensureManifestObserver();
+    if (manifestObserver) manifestObserver.observe(card);
+    else queueManifest(pkg, true);
   }
 
   function scheduleMedia(card, pkg) {
-    if (!pkg || (!pkg.video && !pkg.image) || pkg.mediaFailed) return;
+    if (!card || !card.isConnected || !pkg || (!pkg.video && !pkg.image) || pkg.mediaFailed) return;
     card._pkg = pkg;
     ensureMediaObserver();
     if (mediaObserver) mediaObserver.observe(card);
@@ -1212,6 +1223,14 @@
     });
   }
 
+  function clearGrid() {
+    var visibleCards = grid.querySelectorAll('.pkg-card');
+    Array.prototype.forEach.call(visibleCards, function (card) {
+      stopObservingCard(card);
+    });
+    grid.innerHTML = '';
+  }
+
   function toggleEmptyState(show) {
     var emptyEl = grid.querySelector('.pkg-empty');
     if (!show) {
@@ -1252,14 +1271,14 @@
 
   function renderNextBatch(reset) {
     if (reset) {
-      grid.innerHTML = '';
+      clearGrid();
       renderedCount = 0;
     }
 
     toggleEmptyState(false);
 
     if (!filteredPackages.length) {
-      grid.innerHTML = '';
+      clearGrid();
       renderedCount = 0;
       clearActiveCard();
       toggleEmptyState(true);
@@ -1267,20 +1286,29 @@
       return;
     }
 
-    var nextCount = Math.min(filteredPackages.length, renderedCount + BATCH_SIZE);
+    var nextCount = Math.min(filteredPackages.length, renderedCount + currentBatchSize());
     var fragment = document.createDocumentFragment();
+    var appendedCards = [];
 
     for (var i = renderedCount; i < nextCount; i++) {
       var pkg = filteredPackages[i];
-      fragment.appendChild(getOrCreateCard(pkg));
+      var card = getOrCreateCard(pkg);
+      fragment.appendChild(card);
+      appendedCards.push(card);
     }
 
     grid.appendChild(fragment);
     renderedCount = nextCount;
+
+    appendedCards.forEach(function (card) {
+      if (!card || !card._pkg) return;
+      scheduleManifest(card, card._pkg);
+      if (card._pkg.video || card._pkg.image) scheduleMedia(card, card._pkg);
+    });
+
     syncActiveCard();
     updateResultsSummary();
     scheduleHeroRefresh();
-    scheduleVisibleManifestChecks();
   }
 
   function applyFilters() {
@@ -1317,7 +1345,7 @@
   }
 
   function showSkeletons() {
-    grid.innerHTML = '';
+    clearGrid();
     resultsFooter.style.display = 'none';
     for (var i = 0; i < 8; i++) {
       var skeleton = document.createElement('div');
@@ -1327,7 +1355,7 @@
   }
 
   function renderCards() {
-    grid.innerHTML = '';
+    clearGrid();
     cardMap = {};
     filteredPackages = [];
     renderedCount = 0;
@@ -1647,6 +1675,15 @@
     fetchGeneration += 1;
     var generation = fetchGeneration;
 
+    if (mediaObserver) {
+      mediaObserver.disconnect();
+      mediaObserver = null;
+    }
+    if (manifestObserver) {
+      manifestObserver.disconnect();
+      manifestObserver = null;
+    }
+
     packages = [];
     filteredPackages = [];
     packageMap = new Map();
@@ -1677,7 +1714,7 @@
       })
       .catch(function () {
         if (generation !== fetchGeneration) return;
-        grid.innerHTML = '';
+        clearGrid();
         resultsFooter.style.display = 'none';
         errorEl.style.display = '';
         statusMeta.textContent = 'Failed to fetch live npm data';
@@ -1798,9 +1835,6 @@
     if (event.target === shortcutsEl) closeShortcuts();
   });
   shortcutsClose.addEventListener('click', closeShortcuts);
-
-  window.addEventListener('scroll', scheduleVisibleManifestChecks, { passive: true });
-  window.addEventListener('resize', scheduleVisibleManifestChecks);
 
   document.addEventListener('click', function (event) {
     if (shortcutsEl.classList.contains('open')) return;
