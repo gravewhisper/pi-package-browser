@@ -1,6 +1,6 @@
 # Pi Package Browser
 
-A fast static browser for npm packages tagged `pi-package`.
+A fast, vibe slopped static browser for npm packages tagged `pi-package` because https://pi.dev/packages is glitching and lagging on my end.
 
 Live site: https://gravewhisper.github.io/pi-package-browser/
 
